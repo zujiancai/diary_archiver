@@ -1,0 +1,5 @@
+{
+    "database": "diary_archives.db",
+    "diary_label": "Diary",
+    "openai_key": "<your_key_here>"
+}
