@@ -1,4 +1,5 @@
-from data_access import DIARY_LABEL, open_store
+from common import DIARY_LABEL
+from data_access import open_store
 
 import gkeepapi
 

@@ -1,5 +1,6 @@
 import re
-from data_access import OPENAI_KEY, open_store
+from common import OPENAI_KEY, validate_keyword
+from data_access import open_store
 
 import openai
 
@@ -21,11 +22,8 @@ def generate_keywords(content: str):
     # need to handle utf-8 delimiters
     output = re.split('[:：]+', response.choices[0].text.strip())
     output = output[1] if len(output) > 1 else output[0]
-    if '- ' in output:
-        keywords = [ kw.strip() for kw in output.split('- ') ] # expect response as "Keywords:\n - k1\n - k2\n ...- kn\n."
-    else:
-        keywords = [ kw.strip() for kw in re.split('[,.，。]+', output) ] # expect response as "Keywords: k1, k2, ..., kn."
-    return [ kw for kw in keywords if len(kw) > 3 or (not kw.isdigit() and len(kw) > 1) ] # remove short items, all digits length > 3, other string length > 1
+    keywords = [ kw.strip() for kw in re.split('[,.，。]+', output) ] # expect output as "Keywords: k1, k2, ..., kn."
+    return [ kw for kw in keywords if validate_keyword(kw) ] # remove short items, all digits length > 3, other string length > 1
 
 
 def generate_color(content: str):
@@ -34,7 +32,7 @@ def generate_color(content: str):
         model='text-davinci-003',
         prompt=prompt_text,
         temperature=0,
-        max_tokens=64,
+        max_tokens=10,
         top_p=1.0,
         frequency_penalty=0.0,
         presence_penalty=0.0,

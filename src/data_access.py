@@ -1,8 +1,8 @@
 import base64
 from datetime import datetime
 import json
-import os
 import sqlite3
+from common import DATABASE_PATH
 
 
 def base64_encode(utf8_data: str):
@@ -25,7 +25,6 @@ class DataStore:
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        print('{0} - {1}: {2}'.format(exc_type, exc_value, exc_traceback))
         self.db.commit()
         self.db.close()
 
@@ -80,17 +79,29 @@ class DataStore:
         else:
             cursor.execute("INSERT INTO Tags (tag_id, tag_name, diary_id, source, inserted_time, updated_time) VALUES (?, ?, ?, ?, ?, ?)",
                             (tag_id, tag_name, diary_id, source, curr_time, curr_time))
+    
+    def update_tag_name(self, old_tag_name: str, new_tag_name: str, source: str):
+        cursor = self.db.cursor()
 
+        # Delete if the new_tag_name already exists for the same diary_id
+        delete_duplicates = '''
+            DELETE FROM Tags
+            WHERE tag_id IN
+            (SELECT tl.tag_id
+            FROM Tags AS tl
+            JOIN Tags AS tr
+                ON tl.diary_id = tr.diary_id
+            WHERE tl.tag_name = ? AND tr.tag_name = ?)'''
+        cursor.execute(delete_duplicates, (old_tag_name, new_tag_name))
 
-# Read configuration values from config.json file
-# config_path = 'config.json'
-config_path = '..\\..\\diary_archiver.config.json' # keep config file outside of this repo as having access key
-with open(config_path, 'r', encoding='utf-8') as f:
-    config = json.load(f)
+        # Update to new_tag_name assuming no conflict
+        new_tag_b64 = base64_encode(new_tag_name)
+        update_tags = 'UPDATE Tags SET tag_id = ? || diary_id, tag_name = ?, source = ?, updated_time = ? WHERE tag_name = ?'
+        cursor.execute(update_tags, (new_tag_b64, new_tag_name, source, datetime.now(), old_tag_name))
 
-DATABASE_PATH = config['database']
-DIARY_LABEL = config['diary_label']
-OPENAI_KEY = config['openai_key']
+    def tags_contain(self, delimiter: str):
+        cursor = self.db.cursor()
+        return cursor.execute("SELECT tag_id, tag_name, diary_id FROM Tags WHERE tag_name like '%{}%'".format(delimiter))
 
 
 def open_store(skip_create: bool = False):
